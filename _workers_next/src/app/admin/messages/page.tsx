@@ -1,5 +1,5 @@
 import { db } from "@/lib/db"
-import { adminMessages } from "@/lib/db/schema"
+import { adminMessages, userMessages } from "@/lib/db/schema"
 import { desc } from "drizzle-orm"
 import { AdminMessagesContent } from "@/components/admin/messages-content"
 
@@ -17,6 +17,7 @@ function isMissingTable(error: any) {
 
 export default async function AdminMessagesPage() {
   let rows: any[] = []
+  let inbox: any[] = []
   try {
     rows = await db
       .select({
@@ -36,5 +37,24 @@ export default async function AdminMessagesPage() {
     rows = []
   }
 
-  return <AdminMessagesContent history={rows} />
+  try {
+    inbox = await db
+      .select({
+        id: userMessages.id,
+        userId: userMessages.userId,
+        username: userMessages.username,
+        title: userMessages.title,
+        body: userMessages.body,
+        isRead: userMessages.isRead,
+        createdAt: userMessages.createdAt
+      })
+      .from(userMessages)
+      .orderBy(desc(userMessages.createdAt))
+      .limit(200)
+  } catch (e: any) {
+    if (!isMissingTable(e)) throw e
+    inbox = []
+  }
+
+  return <AdminMessagesContent history={rows} inbox={inbox} />
 }

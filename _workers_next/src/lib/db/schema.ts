@@ -145,3 +145,14 @@ export const adminMessages = sqliteTable('admin_messages', {
     sender: text('sender'),
     createdAt: integer('created_at', { mode: 'timestamp_ms' }).$defaultFn(() => new Date()),
 });
+
+// User -> Admin messages
+export const userMessages = sqliteTable('user_messages', {
+    id: integer('id', { mode: 'number' }).primaryKey({ autoIncrement: true }),
+    userId: text('user_id').notNull().references(() => loginUsers.userId, { onDelete: 'cascade' }),
+    username: text('username'),
+    title: text('title').notNull(),
+    body: text('body').notNull(),
+    isRead: integer('is_read', { mode: 'boolean' }).default(false),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).$defaultFn(() => new Date()),
+});

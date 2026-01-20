@@ -63,10 +63,49 @@ export async function sendAdminMessage(params: {
     await ensureAdminMessagesTable()
     await ensureUserNotificationsTable()
 
-    let userIds: string[] = []
+    const session = await import("@/lib/auth").then((m) => m.auth())
+    const sender = session?.user?.username || session?.user?.name || null
+
+    const payload = JSON.stringify({ title, body })
+    const now = new Date()
+    const chunkSize = 80 // keep SQL variables under SQLite limit
+    let sentCount = 0
+
+    const insertChunk = async (ids: string[]) => {
+        for (let i = 0; i < ids.length; i += chunkSize) {
+            const chunk = ids.slice(i, i + chunkSize)
+            await db.insert(userNotifications).values(
+                chunk.map((id) => ({
+                    userId: id,
+                    type: "admin_message",
+                    titleKey: "profile.notifications.adminMessageTitle",
+                    contentKey: "profile.notifications.adminMessageBody",
+                    data: payload,
+                    isRead: false,
+                    createdAt: now
+                }))
+            )
+            sentCount += chunk.length
+        }
+    }
+
     if (targetType === "all") {
-        const rows = await db.select({ id: loginUsers.userId }).from(loginUsers)
-        userIds = rows.map((r) => r.id).filter(Boolean)
+        const pageSize = 500
+        let offset = 0
+        while (true) {
+            const rows = await db
+                .select({ id: loginUsers.userId })
+                .from(loginUsers)
+                .limit(pageSize)
+                .offset(offset)
+            const ids = rows.map((r) => r.id).filter(Boolean)
+            if (ids.length === 0) break
+            await insertChunk(ids)
+            offset += pageSize
+        }
+        if (sentCount === 0) {
+            return { success: false, error: "admin.messages.userNotFound" }
+        }
     } else if (targetType === "username") {
         const username = targetValue.toLowerCase()
         const rows = await db
@@ -74,22 +113,23 @@ export async function sendAdminMessage(params: {
             .from(loginUsers)
             .where(sql`LOWER(${loginUsers.username}) = ${username}`)
             .limit(1)
-        userIds = rows.map((r) => r.id).filter(Boolean)
+        const ids = rows.map((r) => r.id).filter(Boolean)
+        if (ids.length === 0) {
+            return { success: false, error: "admin.messages.userNotFound" }
+        }
+        await insertChunk(ids)
     } else {
         const rows = await db
             .select({ id: loginUsers.userId })
             .from(loginUsers)
             .where(eq(loginUsers.userId, targetValue))
             .limit(1)
-        userIds = rows.map((r) => r.id).filter(Boolean)
+        const ids = rows.map((r) => r.id).filter(Boolean)
+        if (ids.length === 0) {
+            return { success: false, error: "admin.messages.userNotFound" }
+        }
+        await insertChunk(ids)
     }
-
-    if (userIds.length === 0) {
-        return { success: false, error: "admin.messages.userNotFound" }
-    }
-
-    const session = await import("@/lib/auth").then((m) => m.auth())
-    const sender = session?.user?.username || session?.user?.name || null
 
     await db.insert(adminMessages).values({
         targetType,
@@ -100,32 +140,22 @@ export async function sendAdminMessage(params: {
         createdAt: new Date()
     })
 
-    const payload = JSON.stringify({ title, body })
-    const now = new Date()
-    const chunkSize = 200
-    for (let i = 0; i < userIds.length; i += chunkSize) {
-        const chunk = userIds.slice(i, i + chunkSize)
-        await db.insert(userNotifications).values(
-            chunk.map((id) => ({
-                userId: id,
-                type: "admin_message",
-                titleKey: "profile.notifications.adminMessageTitle",
-                contentKey: "profile.notifications.adminMessageBody",
-                data: payload,
-                isRead: false,
-                createdAt: now
-            }))
-        )
-    }
-
     revalidatePath("/admin/messages")
-    return { success: true, count: userIds.length }
+    return { success: true, count: sentCount }
 }
 
 export async function deleteAdminMessage(id: number) {
     await checkAdmin()
     await ensureAdminMessagesTable()
     await db.delete(adminMessages).where(eq(adminMessages.id, id))
+    revalidatePath("/admin/messages")
+    return { success: true }
+}
+
+export async function clearAdminMessages() {
+    await checkAdmin()
+    await ensureAdminMessagesTable()
+    await db.delete(adminMessages)
     revalidatePath("/admin/messages")
     return { success: true }
 }

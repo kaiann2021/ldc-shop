@@ -15,6 +15,7 @@ import { updateProfileEmail } from "@/actions/profile"
 import { useEffect, useState } from "react"
 import { CheckInButton } from "@/components/checkin-button"
 import { clearMyNotifications, getMyNotifications, markAllNotificationsRead, markNotificationRead } from "@/actions/user-notifications"
+import { sendUserMessage } from "@/actions/user-messages"
 import { cn } from "@/lib/utils"
 
 interface ProfileContentProps {
@@ -53,6 +54,9 @@ export function ProfileContent({ user, points, checkinEnabled, orderStats, notif
     const [markingId, setMarkingId] = useState<number | null>(null)
     const [clearing, setClearing] = useState(false)
     const [expandedIds, setExpandedIds] = useState<number[]>([])
+    const [msgTitle, setMsgTitle] = useState("")
+    const [msgBody, setMsgBody] = useState("")
+    const [msgSending, setMsgSending] = useState(false)
 
     const unreadCount = notifications.filter((n) => !n.isRead).length
 
@@ -362,6 +366,61 @@ export function ProfileContent({ user, points, checkinEnabled, orderStats, notif
                             })}
                         </div>
                     )}
+                </CardContent>
+            </Card>
+
+            {/* Contact Admin */}
+            <Card className="mb-6">
+                <CardHeader className="pb-2">
+                    <CardTitle className="text-base">{t('profile.messages.title')}</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                    <div className="space-y-2">
+                        <Label htmlFor="msg-title">{t('profile.messages.titleLabel')}</Label>
+                        <Input
+                            id="msg-title"
+                            value={msgTitle}
+                            onChange={(e) => setMsgTitle(e.target.value)}
+                            placeholder={t('profile.messages.titlePlaceholder')}
+                            disabled={msgSending}
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="msg-body">{t('profile.messages.bodyLabel')}</Label>
+                        <textarea
+                            id="msg-body"
+                            className="flex min-h-[120px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                            placeholder={t('profile.messages.bodyPlaceholder')}
+                            value={msgBody}
+                            onChange={(e) => setMsgBody(e.target.value)}
+                            disabled={msgSending}
+                        />
+                    </div>
+                    <div className="flex justify-end">
+                        <Button
+                            disabled={msgSending}
+                            onClick={async () => {
+                                if (msgSending) return
+                                setMsgSending(true)
+                                try {
+                                    const res = await sendUserMessage(msgTitle, msgBody)
+                                    if (res?.success) {
+                                        toast.success(t('profile.messages.sent'))
+                                        setMsgTitle("")
+                                        setMsgBody("")
+                                    } else {
+                                        toast.error(res?.error ? t(res.error) : t('common.error'))
+                                    }
+                                } catch {
+                                    toast.error(t('common.error'))
+                                } finally {
+                                    setMsgSending(false)
+                                }
+                            }}
+                        >
+                            {msgSending ? t('common.processing') : t('profile.messages.send')}
+                        </Button>
+                    </div>
                 </CardContent>
             </Card>
 

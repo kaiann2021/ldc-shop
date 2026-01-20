@@ -5,7 +5,7 @@ import { revalidateTag } from "next/cache";
 
 // Database initialization state
 let dbInitialized = false;
-const CURRENT_SCHEMA_VERSION = 3;
+const CURRENT_SCHEMA_VERSION = 4;
 
 async function safeAddColumn(table: string, column: string, definition: string) {
     try {
@@ -34,6 +34,8 @@ async function ensureIndexes() {
         `CREATE INDEX IF NOT EXISTS user_notifications_user_created_idx ON user_notifications(user_id, created_at)`,
         `CREATE INDEX IF NOT EXISTS user_notifications_user_read_idx ON user_notifications(user_id, is_read, created_at)`,
         `CREATE INDEX IF NOT EXISTS admin_messages_created_idx ON admin_messages(created_at)`,
+        `CREATE INDEX IF NOT EXISTS user_messages_read_created_idx ON user_messages(is_read, created_at)`,
+        `CREATE INDEX IF NOT EXISTS user_messages_user_created_idx ON user_messages(user_id, created_at)`,
     ];
 
     for (const statement of indexStatements) {
@@ -76,6 +78,7 @@ async function ensureDatabaseInitialized() {
         await ensureLoginUsersTable();
         await ensureUserNotificationsTable();
         await ensureAdminMessagesTable();
+        await ensureUserMessagesTable();
         await migrateTimestampColumnsToMs();
         await ensureIndexes();
         await backfillProductAggregates();
@@ -228,6 +231,17 @@ async function ensureDatabaseInitialized() {
             title TEXT NOT NULL,
             body TEXT NOT NULL,
             sender TEXT,
+            created_at INTEGER DEFAULT (unixepoch() * 1000)
+        );
+
+        -- User messages table
+        CREATE TABLE IF NOT EXISTS user_messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT NOT NULL REFERENCES login_users(user_id) ON DELETE CASCADE,
+            username TEXT,
+            title TEXT NOT NULL,
+            body TEXT NOT NULL,
+            is_read INTEGER DEFAULT 0,
             created_at INTEGER DEFAULT (unixepoch() * 1000)
         );
     `);
@@ -996,6 +1010,7 @@ async function migrateTimestampColumnsToMs() {
         { table: 'refund_requests', columns: ['created_at', 'updated_at', 'processed_at'] },
         { table: 'user_notifications', columns: ['created_at'] },
         { table: 'admin_messages', columns: ['created_at'] },
+        { table: 'user_messages', columns: ['created_at'] },
     ];
 
     for (const { table, columns } of tableColumns) {
@@ -1059,6 +1074,20 @@ async function ensureAdminMessagesTable() {
             title TEXT NOT NULL,
             body TEXT NOT NULL,
             sender TEXT,
+            created_at INTEGER DEFAULT (unixepoch() * 1000)
+        )
+    `);
+}
+
+async function ensureUserMessagesTable() {
+    await db.run(sql`
+        CREATE TABLE IF NOT EXISTS user_messages(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT NOT NULL REFERENCES login_users(user_id) ON DELETE CASCADE,
+            username TEXT,
+            title TEXT NOT NULL,
+            body TEXT NOT NULL,
+            is_read INTEGER DEFAULT 0,
             created_at INTEGER DEFAULT (unixepoch() * 1000)
         )
     `);
