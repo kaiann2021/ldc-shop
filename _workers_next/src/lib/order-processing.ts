@@ -106,6 +106,7 @@ export async function processOrderFulfillment(orderId: string, paidAmount: numbe
             if (availableCard.length > 0) {
                 const key = availableCard[0].cardKey;
                 const cardKeys = Array(order.quantity || 1).fill(key);
+                const cardIdsValue = String(availableCard[0].id);
 
                 await db.update(orders)
                     .set({
@@ -114,6 +115,7 @@ export async function processOrderFulfillment(orderId: string, paidAmount: numbe
                         deliveredAt: new Date(),
                         tradeNo: tradeNo,
                         cardKey: cardKeys.join('\n'),
+                        cardIds: cardIdsValue,
                         currentPaymentId: null
                     })
                     .where(eq(orders.orderId, orderId));
@@ -178,6 +180,7 @@ export async function processOrderFulfillment(orderId: string, paidAmount: numbe
 
         const quantity = order.quantity || 1;
         let cardKeys: string[] = [];
+        const usedCardIds: number[] = [];
         const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
 
         // 1. Reserved cards
@@ -197,6 +200,7 @@ export async function processOrderFulfillment(orderId: string, paidAmount: numbe
                     })
                     .where(eq(cards.id, card.id));
                 cardKeys.push(card.cardKey);
+                usedCardIds.push(card.id);
             }
         } catch (error: any) {
             console.log('[Fulfill] Reserved cards check failed:', error.message);
@@ -218,11 +222,14 @@ export async function processOrderFulfillment(orderId: string, paidAmount: numbe
                     })
                     .where(eq(cards.id, card.id));
                 cardKeys.push(card.cardKey);
+                usedCardIds.push(card.id);
             }
         }
 
         if (cardKeys.length > 0) {
             const joinedKeys = cardKeys.join('\n');
+            const uniqueCardIds = Array.from(new Set(usedCardIds));
+            const cardIdsValue = uniqueCardIds.length > 0 ? uniqueCardIds.join(',') : null;
 
             await db.update(orders)
                 .set({
@@ -230,7 +237,8 @@ export async function processOrderFulfillment(orderId: string, paidAmount: numbe
                     paidAt: new Date(),
                     deliveredAt: new Date(),
                     tradeNo: tradeNo,
-                    cardKey: joinedKeys
+                    cardKey: joinedKeys,
+                    cardIds: cardIdsValue
                 })
                 .where(eq(orders.orderId, orderId));
             console.log(`[Fulfill] Order ${orderId} delivered successfully!`);

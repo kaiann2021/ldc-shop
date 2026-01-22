@@ -106,6 +106,7 @@ export async function importData(formData: FormData) {
             userId: 'user_id',
             pointsUsed: 'points_used',
             currentPaymentId: 'current_payment_id',
+            cardIds: 'card_ids',
             // Login Users
             lastLoginAt: 'last_login_at',
             isBlocked: 'is_blocked',

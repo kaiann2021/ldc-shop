@@ -45,6 +45,7 @@ export const orders = sqliteTable('orders', {
     status: text('status').default('pending'), // pending, paid, delivered, failed, refunded
     tradeNo: text('trade_no'),
     cardKey: text('card_key'),
+    cardIds: text('card_ids'),
     paidAt: integer('paid_at', { mode: 'timestamp_ms' }),
     deliveredAt: integer('delivered_at', { mode: 'timestamp_ms' }),
     userId: text('user_id'),

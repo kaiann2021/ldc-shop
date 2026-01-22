@@ -8,7 +8,7 @@ import { cache } from "react";
 let dbInitialized = false;
 let loginUsersSchemaReady = false;
 let wishlistTablesReady = false;
-const CURRENT_SCHEMA_VERSION = 9;
+const CURRENT_SCHEMA_VERSION = 10;
 
 async function safeAddColumn(table: string, column: string, definition: string) {
     try {
@@ -98,6 +98,7 @@ async function ensureDatabaseInitialized() {
 
         // IMPORTANT: Even if table exists, ensure columns exist!
         await ensureProductsColumns();
+        await ensureOrdersColumns();
         await ensureLoginUsersTable();
         await ensureLoginUsersColumns(); // Add this call
         loginUsersSchemaReady = true;
@@ -168,6 +169,7 @@ async function ensureDatabaseInitialized() {
             status TEXT DEFAULT 'pending',
             trade_no TEXT,
             card_key TEXT,
+            card_ids TEXT,
             paid_at INTEGER,
             delivered_at INTEGER,
             user_id TEXT,
@@ -345,6 +347,7 @@ async function ensureOrdersColumns() {
     await safeAddColumn('orders', 'points_used', 'INTEGER DEFAULT 0 NOT NULL');
     await safeAddColumn('orders', 'current_payment_id', 'TEXT');
     await safeAddColumn('orders', 'payee', 'TEXT');
+    await safeAddColumn('orders', 'card_ids', 'TEXT');
 }
 
 async function ensureLoginUsersColumns() {

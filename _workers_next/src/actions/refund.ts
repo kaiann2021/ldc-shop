@@ -66,12 +66,25 @@ export async function markOrderRefunded(orderId: string) {
     } catch {
         reclaimCards = true
     }
-    if (reclaimCards && order.cardKey) {
-        const keys = order.cardKey.split('\n').map((k: string) => k.trim()).filter((k: string) => k !== '')
-        if (keys.length > 0) {
-            const uniqueKeys = Array.from(new Set(keys)) as string[]
-            await db.update(cards).set({ isUsed: false, usedAt: null })
-                .where(and(eq(cards.productId, order.productId), inArray(cards.cardKey, uniqueKeys)))
+    if (reclaimCards) {
+        const rawIds = order.cardIds || '';
+        const parsedIds = rawIds
+            .split(',')
+            .map((id) => Number(id.trim()))
+            .filter((id) => Number.isFinite(id));
+
+        const uniqueIds = Array.from(new Set(parsedIds));
+
+        if (uniqueIds.length > 0) {
+            await db.update(cards).set({ isUsed: false, usedAt: null, reservedOrderId: null, reservedAt: null })
+                .where(inArray(cards.id, uniqueIds));
+        } else if (order.cardKey) {
+            const keys = order.cardKey.split('\n').map((k: string) => k.trim()).filter((k: string) => k !== '')
+            if (keys.length > 0) {
+                const uniqueKeys = Array.from(new Set(keys)) as string[]
+                await db.update(cards).set({ isUsed: false, usedAt: null, reservedOrderId: null, reservedAt: null })
+                    .where(and(eq(cards.productId, order.productId), inArray(cards.cardKey, uniqueKeys)))
+            }
         }
     }
 

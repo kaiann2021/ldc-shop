@@ -321,6 +321,9 @@ export async function createOrder(productId: string, quantity: number = 1, email
                 pointsDeducted = true
             }
 
+            const uniqueCardIds = Array.from(new Set(reservedCards.map(c => c.id).filter((id: any) => id !== null && id !== undefined)));
+            const cardIdsValue = uniqueCardIds.length > 0 ? uniqueCardIds.join(',') : null;
+
             if (isZeroPrice) {
                 const cardIds = reservedCards.map(c => c.id)
                 if (cardIds.length > 0) {
@@ -349,6 +352,7 @@ export async function createOrder(productId: string, quantity: number = 1, email
                     username: username || user?.username || null,
                     status: 'delivered',
                     cardKey: joinedKeys,
+                    cardIds: cardIdsValue,
                     paidAt: new Date(),
                     deliveredAt: new Date(),
                     tradeNo: 'POINTS_REDEMPTION',
@@ -413,6 +417,7 @@ export async function createOrder(productId: string, quantity: number = 1, email
                     status: 'pending',
                     pointsUsed: pointsToUse,
                     currentPaymentId: orderId, // Store current payment ID
+                    cardIds: cardIdsValue,
                     quantity: qty,
                     createdAt: new Date()
                 });
